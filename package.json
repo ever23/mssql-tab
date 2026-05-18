@@ -4,7 +4,7 @@
   "description": "Adaptador de SQL Server (mssql) para dbtabla",
   "main": "mssql-tab.js",
   "scripts": {
-    "test": "node --test ./test/index.js"
+    "test": "docker-compose up -d && node -e \"setTimeout(()=>process.exit(0), 20000)\" && node --test ./test/index.js && (node -e \"setTimeout(()=>process.exit(0), 1000)\" & docker-compose down) || docker-compose down"
   },
   "dependencies": {
     "dbtabla": "^2.2.9",

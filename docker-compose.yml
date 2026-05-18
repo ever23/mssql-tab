@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  mssql-test:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql-test
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=TuPasswordFuerte123
+    ports:
+      - "1433:1433"
