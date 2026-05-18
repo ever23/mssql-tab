@@ -1,0 +1,220 @@
+# mssql-tab
+
+[![NPM Version][npm-image]][npm-url]
+[![NPM Downloads][downloads-image]][downloads-url]
+[![Node.js Version][node-version-image]][node-version-url]
+
+**mssql-tab** es una potente interfaz de alto nivel para interactuar con bases de datos Microsoft SQL Server en Node.js. Diseñada bajo el patrón **Active Record** (parte del ecosistema `dbtabla`), permite gestionar la persistencia de datos de forma fluida, segura y orientada a objetos, eliminando la necesidad de escribir T-SQL manual para las tareas comunes.
+
+## 🚀 Características Principales
+
+*   **Abstracción Total**: Realiza operaciones CRUD complejas usando objetos de JavaScript.
+*   **Patrón Active Record**: Los resultados de las consultas son objetos inteligentes con métodos `.update()` y `.delete()`.
+*   **Gestión de Esquemas**: Sincronización automática de tablas basada en modelos definidos y mapeo de tipos (`boolean` -> `BIT`, `autoincrement` -> `IDENTITY`).
+*   **Fluent Query Builder**: Motor de selección polimórfico con soporte para Joins dinámicos.
+*   **Transacciones Atómicas**: Soporte nativo para transacciones (Commit/Rollback).
+*   **Auto-Descubrimiento**: Creación automática de la base de datos si no existe durante el arranque.
+
+## 📚 Ecosistema dbtabla
+
+Este paquete forma parte de un ecosistema modular. También puedes utilizar:
+
+*   **[tabla-model](https://github.com/ever23/tabla-model)**: El motor de definición de esquemas (requerido para definir modelos).
+*   **[mysql-tab](https://github.com/ever23/mysql-tab)**: Soporte para MySQL y MariaDB.
+*   **[sqlite3-tab](https://github.com/ever23/sqlite3-tab)**: Soporte para SQLite3.
+*   **[pg-table](https://github.com/ever23/pg-table)**: Soporte para PostgreSQL.
+
+---
+
+## 📦 Instalación
+
+```sh
+$ npm install mssql-tab
+```
+
+---
+
+## 🛠️ Inicio Rápido
+
+### 1. Conexión y Configuración
+Instancia la conexión pasando un objeto de configuración estándar de SQL Server.
+
+```javascript
+const mssqlTab = require('mssql-tab');
+
+const db = new mssqlTab({
+    server: 'localhost',
+    user: 'sa',
+    password: 'TuPasswordFuerte123',
+    database: 'mi_proyecto',
+    options: {
+        encrypt: true,
+        trustServerCertificate: true // Útil para entornos de desarrollo
+    }
+});
+```
+
+### 2. Definición de Modelos (Opcional pero recomendado)
+Utiliza `tabla-model` para definir la estructura de tus datos.
+
+```javascript
+// model/Usuario.js
+const Model = require('tabla-model');
+
+module.exports = new Model('usuarios', {
+    colums: [
+        { name: 'id', type: 'int', primary: true, autoincrement: true },
+        { name: 'nombre', type: 'varchar(100)' },
+        { name: 'email', type: 'varchar(100)', unique: true },
+        { name: 'activo', type: 'boolean', default: 1 }
+    ]
+});
+```
+
+Registra tus modelos para que el framework gestione las tablas por ti:
+```javascript
+const path = require('path');
+db.pathModels(path.join(__dirname, 'model'));
+```
+
+---
+
+## 📖 Guía de Uso: Operaciones de Tabla
+
+Obtén una instancia de la tabla para empezar a operar:
+```javascript
+const usuarios = db.tabla('usuarios');
+```
+
+### Inserción de Datos
+```javascript
+// Inserción por objeto
+await usuarios.insert({ nombre: 'Antigravity', email: 'ai@dev.com', activo: 1 });
+
+// Inserción posicional (según el orden de las columnas)
+await usuarios.insert(null, 'Nuevo Usuario', 'user@example.com');
+```
+
+### Consultas (Select)
+El método `.select()` es extremadamente versátil.
+
+```javascript
+// 1. Selección simple con filtros (WHERE)
+const todos = await usuarios.select("id > 10");
+
+// 2. Selección de campos específicos
+const nombres = await usuarios.select(["nombre", "email"], "id < 50");
+
+// 3. Selección con Joins Dinámicos
+// Prefijos: '>' Right Join, '<' Left Join, '=' Inner Join
+const conPerfiles = await usuarios.select(
+    ["u.nombre", "p.bio"], 
+    { "<perfiles": "u.id = p.id_usuario" }, // Left Join
+    "u.activo = 1"
+);
+
+// 4. Búsqueda por ID
+const user = await usuarios.selectById(1);
+
+// 5. Búsqueda Inteligente (LIKE)
+const resultados = await usuarios.busqueda("Antigravity", ["nombre", "email"]);
+```
+
+#### Sintaxis Avanzada de Filtrado (Where Object)
+Al usar un objeto en el parámetro `where`, puedes usar prefijos y sufijos para operadores especiales:
+*   **Sufijos:** `campo%` (LIKE), `campo!` (!=), `campo>` (>), `campo<` (<), `campo>=` (>=), `campo<=` (<=).
+*   **Prefijos:** `||campo` (OR), `&&campo` (AND).
+
+```javascript
+// Ejemplo: WHERE activo = 1 OR nombre LIKE 'Anti%'
+await usuarios.select({ "activo": 1, "||nombre%": "Anti%" });
+```
+
+> [!IMPORTANT]
+> **Uso de Parámetros Polimórficos:**
+> Si pasas un **objeto** como primer argumento en `.select()`, la librería lo interpretará como una definición de **Joins**. Para usar un objeto de filtrado `where` sin definir campos ni joins, utiliza `null`:
+> ```javascript
+> // Correcto: (campos, joins, where)
+> await tabla.select(null, null, { "activo": 1 });
+> ```
+
+### Sintaxis de Objeto Único (Recomendada)
+Esta es la forma más segura y clara de realizar consultas, evitando problemas de polimorfismo:
+
+```javascript
+await usuarios.select({
+    where: { "id_usuario": 1, "tipo!": "admin" },
+    order: "id DESC",
+    limit: 10
+});
+```
+
+### Actualización y Borrado
+```javascript
+// Actualización masiva o filtrada con cláusula string
+await usuarios.update({ estado: 'bloqueado' }, "id = 1");
+
+// Actualización por ID (más directo)
+await usuarios.updateById({ estado: 'activo' }, 1);
+
+// Borrado
+await usuarios.delete("id = 5");
+
+// Borrado por ID
+await usuarios.deleteById(5);
+```
+
+---
+
+## 💎 El Poder de Active Record (dbRow)
+
+Cuando realizas un `select`, obtienes instancias de `dbRow`. Estos objetos "conocen" su origen y pueden gestionarse a sí mismos.
+
+```javascript
+const user = await usuarios.selectOne("id = 1");
+
+if (user) {
+    user.nombre = "Nombre Editado";
+    await user.update(); // Genera y ejecuta el SQL UPDATE automáticamente
+    
+    // O si deseas eliminarlo
+    // await user.delete();
+}
+```
+
+---
+
+## 🔐 Transacciones
+Asegura la integridad de tus datos envolviendo operaciones críticas (ACID compliance nativo).
+
+```javascript
+try {
+    await db.beginTransaction();
+
+    await pedidos.insert({ ... });
+    await stock.update({ cantidad: -1 }, "id_producto = 10");
+
+    await db.commit();
+} catch (error) {
+    await db.rollback();
+    console.error("Transacción fallida, cambios revertidos:", error);
+}
+```
+
+---
+
+## 🧪 Pruebas
+Para ejecutar los tests unitarios y de integración del módulo:
+```sh
+$ npm test
+```
+
+## 📄 Licencia
+Este proyecto está bajo la Licencia MIT.
+
+[npm-image]: https://img.shields.io/npm/v/mssql-tab.svg
+[npm-url]: https://npmjs.org/package/mssql-tab
+[node-version-image]: https://img.shields.io/node/v/mssql-tab.svg
+[node-version-url]: https://nodejs.org/en/download/
+[downloads-image]: https://img.shields.io/npm/dm/mssql-tab.svg
+[downloads-url]: https://npmjs.org/package/mssql-tab
