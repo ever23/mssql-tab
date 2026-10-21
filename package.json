@@ -1,6 +1,6 @@
 {
   "name": "mssql-tab",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Adaptador de SQL Server (mssql) para dbtabla",
   "main": "mssql-tab.js",
   "types": "mssql-tab.d.ts",
