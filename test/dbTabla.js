@@ -10,7 +10,7 @@ describe("Test de dbTabla integrado con mssql-tab", () => {
             user     : 'sa',
             password : 'TuPasswordFuerte123'
         })
-        const db = new dbTabla(mssql, SQLSERVER_DB)
+        const db = mssql.tabla('usuarios')
         
         assert.ok(db instanceof dbTabla)
         mssql.end()
