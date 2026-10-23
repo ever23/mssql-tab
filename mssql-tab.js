@@ -208,6 +208,37 @@ class mssqlTab extends Connect {
             this.activeTransaction = null
         }
     }
+
+    async _acquireDedicatedConnection() {
+        await this.#connect();
+        return new mssql.Transaction(this.#pool);
+    }
+
+    async _releaseDedicatedConnection(transaction) {
+        // En mssql el commit o rollback ya finalizan la transacción
+    }
+
+    async _beginTransactionOnConnection(transaction) {
+        await transaction.begin();
+    }
+
+    async _commitTransactionOnConnection(transaction) {
+        await transaction.commit();
+    }
+
+    async _rollbackTransactionOnConnection(transaction) {
+        await transaction.rollback();
+    }
+
+    async _queryOnConnection(transaction, query_str, config = {}) {
+        this.lastSql = query_str;
+        const request = transaction.request();
+        const result = await request.query(query_str);
+        if (result.recordset) {
+            return new dbResult(this, result.recordset);
+        }
+        return { affectedRows: (result.rowsAffected && result.rowsAffected[0]) || 0 };
+    }
 }
 
 module.exports = mssqlTab
