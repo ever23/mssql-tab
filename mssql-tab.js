@@ -109,20 +109,22 @@ class mssqlTab extends Connect {
      */
     query(query_str, config = {}) {
         this.lastSql = query_str
-        return new Promise(async (resolver, reject) => {
-            try {
-                await this.#connect()
-                let request = this.activeTransaction ? this.activeTransaction.request() : this.#pool.request()
-                let result = await request.query(query_str)
-                
-                if (result.recordset) {
-                    resolver(new dbResult(this, result.recordset))
-                } else {
-                    resolver({ affectedRows: result.rowsAffected[0] || 0 })
+        return this._executeWithTiming(query_str, () => {
+            return new Promise(async (resolver, reject) => {
+                try {
+                    await this.#connect()
+                    let request = this.activeTransaction ? this.activeTransaction.request() : this.#pool.request()
+                    let result = await request.query(query_str)
+                    
+                    if (result.recordset) {
+                        resolver(new dbResult(this, result.recordset))
+                    } else {
+                        resolver({ affectedRows: result.rowsAffected[0] || 0 })
+                    }
+                } catch (error) {
+                    reject(error)
                 }
-            } catch (error) {
-                reject(error)
-            }
+            })
         })
     }
 
@@ -232,12 +234,14 @@ class mssqlTab extends Connect {
 
     async _queryOnConnection(transaction, query_str, config = {}) {
         this.lastSql = query_str;
-        const request = transaction.request();
-        const result = await request.query(query_str);
-        if (result.recordset) {
-            return new dbResult(this, result.recordset);
-        }
-        return { affectedRows: (result.rowsAffected && result.rowsAffected[0]) || 0 };
+        return this._executeWithTiming(query_str, async () => {
+            const request = transaction.request();
+            const result = await request.query(query_str);
+            if (result.recordset) {
+                return new dbResult(this, result.recordset);
+            }
+            return { affectedRows: (result.rowsAffected && result.rowsAffected[0]) || 0 };
+        });
     }
 }
 
