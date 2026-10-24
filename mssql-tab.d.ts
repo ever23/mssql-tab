@@ -10,7 +10,9 @@ import {
     dbResult,
     dbRow,
     DbRowRecord,
-    QueryEvent
+    QueryEvent,
+    PaginateOptions,
+    PaginateResult
 } from 'dbtabla';
 
 export class mssqlTab extends Connect {
